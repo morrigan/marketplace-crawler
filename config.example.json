@@ -1,0 +1,42 @@
+{
+  "state_file": "data/state.json",
+  "http": {
+    "timeout_seconds": 30,
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  },
+  "email": {
+    "from": "Marketplace Watcher <alerts@your-domain.com>"
+  },
+  "marketplaces": [
+    {
+      "name": "Example Marketplace",
+      "search_url": "https://example.com/search?q=your+keywords",
+      "allowed_domains": [
+        "example.com"
+      ],
+      "candidate_url_patterns": [
+        "/item/",
+        "/listing/"
+      ],
+      "keywords": [
+        "exact keyword 1",
+        "exact keyword 2"
+      ],
+      "match_mode": "all",
+      "exclude_keywords": [
+        "sold",
+        "reserved"
+      ],
+      "bootstrap_existing": true,
+      "max_items_per_run": 50,
+      "min_title_length": 5,
+      "headers": {
+        "Accept-Language": "en-US,en;q=0.9"
+      },
+      "blocked_markers": [
+        "captcha",
+        "access denied"
+      ]
+    }
+  ]
+}

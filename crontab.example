@@ -1,0 +1,1 @@
+0 8,20 * * * cd /private/var/www/marketplace-crawler && /usr/bin/env python3 watcher.py --config config.json >> /private/var/www/marketplace-crawler/data/watcher.log 2>&1

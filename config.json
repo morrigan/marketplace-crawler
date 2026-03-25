@@ -1,0 +1,112 @@
+{
+  "state_file": "data/state.json",
+  "http": {
+    "timeout_seconds": 30,
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+  },
+  "email": {
+    "from": "Marketplace Watcher <alerts@your-domain.com>"
+  },
+  "marketplaces": [
+    {
+      "name": "Willhaben Atemluftkompressor",
+      "search_url": "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?isNavigation=true&srcType=vertical-search-box&keyword=atemluftkompressor",
+      "allowed_domains": [
+        "willhaben.at"
+      ],
+      "candidate_url_patterns": [
+        "/iad/kaufen-und-verkaufen/d/"
+      ],
+      "keywords": [
+        "atemluftkompressor",
+        "atemluft kompressor"
+      ],
+      "match_mode": "any",
+      "exclude_keywords": [
+        "sold",
+        "reserved"
+      ],
+      "bootstrap_existing": true,
+      "max_items_per_run": 50,
+      "min_title_length": 5,
+      "headers": {
+        "Accept-Language": "de-AT,de;q=0.9,en;q=0.8"
+      }
+    },
+    {
+      "name": "Willhaben Tauchkompressor",
+      "search_url": "https://www.willhaben.at/iad/kaufen-und-verkaufen/marktplatz?sfId=a2d09659-24c1-4388-9559-bbb7f94cc4c6&rows=30&isNavigation=true&keyword=tauchkompressor",
+      "allowed_domains": [
+        "willhaben.at"
+      ],
+      "candidate_url_patterns": [
+        "/iad/kaufen-und-verkaufen/d/"
+      ],
+      "keywords": [
+        "tauchkompressor",
+        "tauch kompressor"
+      ],
+      "match_mode": "any",
+      "exclude_keywords": [
+        "sold",
+        "reserved"
+      ],
+      "bootstrap_existing": true,
+      "max_items_per_run": 50,
+      "min_title_length": 5,
+      "headers": {
+        "Accept-Language": "de-AT,de;q=0.9,en;q=0.8"
+      }
+    },
+    {
+      "name": "Kleinanzeigen Atemluftkompressor",
+      "search_url": "https://www.kleinanzeigen.de/s-atemluftkompressor/k0",
+      "allowed_domains": [
+        "kleinanzeigen.de"
+      ],
+      "candidate_url_patterns": [
+        "/s-anzeige/"
+      ],
+      "keywords": [
+        "atemluftkompressor",
+        "atemluft kompressor"
+      ],
+      "match_mode": "any",
+      "exclude_keywords": [
+        "reserviert",
+        "verkauft"
+      ],
+      "bootstrap_existing": true,
+      "max_items_per_run": 50,
+      "min_title_length": 5,
+      "headers": {
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"
+      }
+    },
+    {
+      "name": "Kleinanzeigen Tauchkompressor",
+      "search_url": "https://www.kleinanzeigen.de/s-tauchkompressor/k0",
+      "allowed_domains": [
+        "kleinanzeigen.de"
+      ],
+      "candidate_url_patterns": [
+        "/s-anzeige/"
+      ],
+      "keywords": [
+        "tauchkompressor",
+        "tauch kompressor"
+      ],
+      "match_mode": "any",
+      "exclude_keywords": [
+        "reserviert",
+        "verkauft"
+      ],
+      "bootstrap_existing": true,
+      "max_items_per_run": 50,
+      "min_title_length": 5,
+      "headers": {
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8"
+      }
+    }
+  ]
+}

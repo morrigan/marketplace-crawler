@@ -1,0 +1,32 @@
+{
+  "state_file": "data/test-state.json",
+  "http": {
+    "timeout_seconds": 30
+  },
+  "email": {
+    "to": "belma.dzi@gmail.com",
+    "from": "Marketplace Watcher <alerts@your-domain.com>"
+  },
+  "marketplaces": [
+    {
+      "name": "Local Fixture",
+      "search_url": "file:///private/var/www/marketplace-crawler/tests/fixtures/sample_market.html",
+      "allowed_domains": [
+        ""
+      ],
+      "candidate_url_patterns": [
+        "/listing/"
+      ],
+      "keywords": [
+        "canon",
+        "camera"
+      ],
+      "match_mode": "all",
+      "exclude_keywords": [
+        "reserved"
+      ],
+      "bootstrap_existing": true,
+      "min_title_length": 3
+    }
+  ]
+}

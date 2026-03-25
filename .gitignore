@@ -1,0 +1,6 @@
+.env
+data/state.json
+data/test-state.json
+data/watcher.log
+__pycache__/
+tests/__pycache__/

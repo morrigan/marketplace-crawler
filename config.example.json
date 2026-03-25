@@ -38,6 +38,7 @@
       "bootstrap_existing": true,
       "max_items_per_run": 50,
       "min_title_length": 5,
+      "preflight_url": "https://example.com/",
       "headers": {
         "Accept-Language": "en-US,en;q=0.9"
       },

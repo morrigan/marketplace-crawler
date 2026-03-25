@@ -37,6 +37,7 @@
       "bootstrap_existing": true,
       "max_items_per_run": 50,
       "min_title_length": 5,
+      "preflight_url": "https://www.willhaben.at/",
       "headers": {
         "Accept-Language": "de-AT,de;q=0.9,en;q=0.8"
       }
@@ -62,6 +63,7 @@
       "bootstrap_existing": true,
       "max_items_per_run": 50,
       "min_title_length": 5,
+      "preflight_url": "https://www.willhaben.at/",
       "headers": {
         "Accept-Language": "de-AT,de;q=0.9,en;q=0.8"
       }

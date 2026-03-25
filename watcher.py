@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -125,6 +126,10 @@ def build_request_headers(url: str, user_agent: str, headers: dict[str, str] | N
         "Pragma": "no-cache",
         "DNT": "1",
         "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
     }
     if parsed.scheme in {"http", "https"} and parsed.netloc:
         request_headers.setdefault("Referer", f"{parsed.scheme}://{parsed.netloc}/")
@@ -219,7 +224,13 @@ class MarketplaceResult:
     baseline_applied: bool
 
 
-def fetch_html_with_curl(url: str, timeout_seconds: int, request_headers: dict[str, str]) -> str:
+def run_curl_request(
+    url: str,
+    timeout_seconds: int,
+    request_headers: dict[str, str],
+    cookie_jar_path: str | None = None,
+    fail_on_http_errors: bool = True,
+) -> subprocess.CompletedProcess[bytes]:
     curl_path = shutil.which("curl")
     if not curl_path:
         raise URLError("curl is not installed")
@@ -232,14 +243,17 @@ def fetch_html_with_curl(url: str, timeout_seconds: int, request_headers: dict[s
         "--compressed",
         "--max-time",
         str(timeout_seconds),
-        "--fail",
     ]
+    if fail_on_http_errors:
+        command.append("--fail")
+    if cookie_jar_path:
+        command.extend(["--cookie", cookie_jar_path, "--cookie-jar", cookie_jar_path])
     for key, value in request_headers.items():
         command.extend(["-H", f"{key}: {value}"])
     command.append(url)
 
     try:
-        result = subprocess.run(
+        return subprocess.run(
             command,
             check=False,
             capture_output=True,
@@ -248,6 +262,38 @@ def fetch_html_with_curl(url: str, timeout_seconds: int, request_headers: dict[s
     except subprocess.TimeoutExpired as error:
         raise TimeoutError("curl request timed out") from error
 
+def fetch_html_with_curl(
+    url: str,
+    timeout_seconds: int,
+    request_headers: dict[str, str],
+    preflight_url: str | None,
+) -> str:
+    cookie_jar_path: str | None = None
+    if preflight_url:
+        with tempfile.NamedTemporaryFile(prefix="marketplace-cookies-", suffix=".txt", delete=False) as handle:
+            cookie_jar_path = handle.name
+        try:
+            preflight_headers = dict(request_headers)
+            preflight_headers["Referer"] = preflight_url
+            run_curl_request(
+                preflight_url,
+                timeout_seconds,
+                preflight_headers,
+                cookie_jar_path=cookie_jar_path,
+                fail_on_http_errors=False,
+            )
+            result = run_curl_request(
+                url,
+                timeout_seconds,
+                request_headers,
+                cookie_jar_path=cookie_jar_path,
+            )
+        finally:
+            if cookie_jar_path and os.path.exists(cookie_jar_path):
+                os.unlink(cookie_jar_path)
+    else:
+        result = run_curl_request(url, timeout_seconds, request_headers)
+
     if result.returncode != 0:
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
         raise URLError(f"curl failed with exit code {result.returncode}: {stderr or 'unknown error'}")
@@ -255,7 +301,13 @@ def fetch_html_with_curl(url: str, timeout_seconds: int, request_headers: dict[s
     return result.stdout.decode("utf-8", errors="replace")
 
 
-def fetch_html(url: str, user_agent: str, timeout_seconds: int, headers: dict[str, str] | None) -> str:
+def fetch_html(
+    url: str,
+    user_agent: str,
+    timeout_seconds: int,
+    headers: dict[str, str] | None,
+    preflight_url: str | None = None,
+) -> str:
     request_headers = build_request_headers(url, user_agent, headers)
 
     request = Request(url, headers=request_headers)
@@ -266,7 +318,7 @@ def fetch_html(url: str, user_agent: str, timeout_seconds: int, headers: dict[st
     except HTTPError as error:
         if error.code != 403 or urlparse(url).scheme not in {"http", "https"}:
             raise
-        return fetch_html_with_curl(url, timeout_seconds, request_headers)
+        return fetch_html_with_curl(url, timeout_seconds, request_headers, preflight_url)
 
 
 def extract_candidates(html: str, search_url: str, raw_listing_url_patterns: list[str] | None) -> list[dict[str, str]]:
@@ -374,6 +426,7 @@ def run_marketplace(
         user_agent=http_config.get("user_agent", DEFAULT_USER_AGENT),
         timeout_seconds=int(http_config.get("timeout_seconds", 30)),
         headers=marketplace.get("headers"),
+        preflight_url=marketplace.get("preflight_url"),
     )
     blocked_markers = [marker.lower() for marker in marketplace.get("blocked_markers", []) if marker.strip()]
     lowered_html = html.lower()

@@ -64,6 +64,34 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(html, "<html>ok</html>")
         mocked_run.assert_called_once()
 
+    def test_fetch_html_uses_preflight_url_for_curl_fallback(self) -> None:
+        response_headers = Message()
+        with patch("watcher.urlopen") as mocked_urlopen, patch("watcher.shutil.which", return_value="/usr/bin/curl"), patch(
+            "watcher.subprocess.run"
+        ) as mocked_run:
+            mocked_urlopen.side_effect = HTTPError(
+                "https://example.com/search",
+                403,
+                "Forbidden",
+                response_headers,
+                None,
+            )
+            mocked_run.side_effect = [
+                MagicMock(returncode=0, stdout=b"", stderr=b""),
+                MagicMock(returncode=0, stdout=b"<html>ok</html>", stderr=b""),
+            ]
+
+            html = fetch_html(
+                "https://example.com/search",
+                "TestAgent",
+                10,
+                {"Accept-Language": "de-DE,de;q=0.9"},
+                preflight_url="https://example.com/",
+            )
+
+        self.assertEqual(html, "<html>ok</html>")
+        self.assertEqual(mocked_run.call_count, 2)
+
     def test_extract_candidates_from_anchor_tags(self) -> None:
         html = """
         <html>

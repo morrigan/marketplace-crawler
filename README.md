@@ -42,6 +42,7 @@ Each marketplace entry supports:
 - `bootstrap_existing`: if `true`, the first run saves current matches without emailing them
 - `max_items_per_run`: cap per marketplace
 - `min_title_length`: helps drop navigation links
+- `preflight_url`: optional page to warm up cookies/session before the actual fetch
 - `headers`: optional per-site HTTP headers
 - `raw_listing_url_patterns`: optional regexes for sites that embed listing URLs in page JSON instead of normal anchor tags
 - `blocked_markers`: optional text markers that should cause the run to fail instead of treating a captcha/block page as empty results
@@ -101,3 +102,5 @@ This implementation is intentionally dependency-free. It works best on marketpla
 On some servers, sites such as Willhaben may return `403 Forbidden` to Python's built-in HTTP client. The watcher retries those requests through `curl`, so `curl` should be installed on the machine that runs the cron job.
 
 The default config also adds a `2-6` second random delay between marketplace requests, plus an extra `1-3` seconds when the next request goes to the same domain.
+
+The Willhaben entries also use `preflight_url` so the fetcher can warm up a session on `willhaben.at` before loading the search page.

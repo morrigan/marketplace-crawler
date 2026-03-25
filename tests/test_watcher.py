@@ -1,10 +1,69 @@
 import unittest
-from unittest.mock import patch
+from email.message import Message
+from urllib.error import HTTPError
+from unittest.mock import MagicMock, patch
 
-from watcher import extract_candidates, filter_candidates, run_marketplace, update_seen_items
+from watcher import (
+    fetch_html,
+    extract_candidates,
+    filter_candidates,
+    maybe_delay_between_requests,
+    run_marketplace,
+    update_seen_items,
+)
 
 
 class WatcherTests(unittest.TestCase):
+    def test_first_request_has_no_delay(self) -> None:
+        delay = maybe_delay_between_requests(
+            None,
+            "https://example.com/search",
+            {
+                "request_delay_seconds": {"min": 2, "max": 6},
+                "same_domain_extra_delay_seconds": {"min": 1, "max": 3},
+            },
+        )
+
+        self.assertEqual(delay, 0.0)
+
+    def test_same_domain_delay_adds_extra_backoff(self) -> None:
+        with patch("watcher.random.uniform", side_effect=[3.0, 2.0]), patch("watcher.time.sleep") as mocked_sleep:
+            delay = maybe_delay_between_requests(
+                "https://example.com/search?q=one",
+                "https://example.com/search?q=two",
+                {
+                    "request_delay_seconds": {"min": 2, "max": 6},
+                    "same_domain_extra_delay_seconds": {"min": 1, "max": 3},
+                },
+            )
+
+        self.assertEqual(delay, 5.0)
+        mocked_sleep.assert_called_once_with(5.0)
+
+    def test_fetch_html_falls_back_to_curl_on_403(self) -> None:
+        response_headers = Message()
+        with patch("watcher.urlopen") as mocked_urlopen, patch("watcher.shutil.which", return_value="/usr/bin/curl"), patch(
+            "watcher.subprocess.run"
+        ) as mocked_run:
+            mocked_urlopen.side_effect = HTTPError(
+                "https://example.com/search",
+                403,
+                "Forbidden",
+                response_headers,
+                None,
+            )
+            mocked_run.return_value = MagicMock(returncode=0, stdout=b"<html>ok</html>", stderr=b"")
+
+            html = fetch_html(
+                "https://example.com/search",
+                "TestAgent",
+                10,
+                {"Accept-Language": "de-DE,de;q=0.9"},
+            )
+
+        self.assertEqual(html, "<html>ok</html>")
+        mocked_run.assert_called_once()
+
     def test_extract_candidates_from_anchor_tags(self) -> None:
         html = """
         <html>

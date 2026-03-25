@@ -46,6 +46,12 @@ Each marketplace entry supports:
 - `raw_listing_url_patterns`: optional regexes for sites that embed listing URLs in page JSON instead of normal anchor tags
 - `blocked_markers`: optional text markers that should cause the run to fail instead of treating a captcha/block page as empty results
 
+HTTP config also supports:
+
+- `timeout_seconds`: per-request network timeout
+- `request_delay_seconds`: random pause between marketplace requests, with `min` and `max`
+- `same_domain_extra_delay_seconds`: extra random pause when two consecutive requests hit the same domain
+
 ## Usage
 
 Dry run:
@@ -90,4 +96,8 @@ The provided example runs at `08:00` and `20:00` every day.
 
 ## Limitations
 
-This implementation is intentionally dependency-free. It works best on marketplace pages where listing links are present in the raw HTML. 
+This implementation is intentionally dependency-free. It works best on marketplace pages where listing links are present in the raw HTML.
+
+On some servers, sites such as Willhaben may return `403 Forbidden` to Python's built-in HTTP client. The watcher retries those requests through `curl`, so `curl` should be installed on the machine that runs the cron job.
+
+The default config also adds a `2-6` second random delay between marketplace requests, plus an extra `1-3` seconds when the next request goes to the same domain.

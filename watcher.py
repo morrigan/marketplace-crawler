@@ -5,8 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
+import shutil
+import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from html import escape
@@ -111,6 +115,54 @@ def load_env_file(path: Path) -> None:
         os.environ.setdefault(key, value)
 
 
+def build_request_headers(url: str, user_agent: str, headers: dict[str, str] | None) -> dict[str, str]:
+    parsed = urlparse(url)
+    request_headers = {
+        "User-Agent": user_agent,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "DNT": "1",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        request_headers.setdefault("Referer", f"{parsed.scheme}://{parsed.netloc}/")
+    if headers:
+        request_headers.update(headers)
+    return request_headers
+
+
+def pick_delay_seconds(delay_config: dict[str, Any] | None) -> float:
+    if not delay_config:
+        return 0.0
+
+    minimum = float(delay_config.get("min", 0))
+    maximum = float(delay_config.get("max", minimum))
+    if minimum < 0 or maximum < 0:
+        raise ValueError("delay values must be non-negative")
+    if maximum < minimum:
+        minimum, maximum = maximum, minimum
+    if minimum == 0 and maximum == 0:
+        return 0.0
+    return random.uniform(minimum, maximum)
+
+
+def maybe_delay_between_requests(previous_url: str | None, current_url: str, http_config: dict[str, Any]) -> float:
+    if previous_url is None:
+        return 0.0
+
+    delay_seconds = pick_delay_seconds(http_config.get("request_delay_seconds"))
+    previous_domain = urlparse(previous_url).netloc.lower()
+    current_domain = urlparse(current_url).netloc.lower()
+    if previous_domain and previous_domain == current_domain:
+        delay_seconds += pick_delay_seconds(http_config.get("same_domain_extra_delay_seconds"))
+
+    if delay_seconds > 0:
+        time.sleep(delay_seconds)
+    return delay_seconds
+
+
 class AnchorExtractor(HTMLParser):
     def __init__(self, base_url: str) -> None:
         super().__init__(convert_charrefs=True)
@@ -167,20 +219,54 @@ class MarketplaceResult:
     baseline_applied: bool
 
 
+def fetch_html_with_curl(url: str, timeout_seconds: int, request_headers: dict[str, str]) -> str:
+    curl_path = shutil.which("curl")
+    if not curl_path:
+        raise URLError("curl is not installed")
+
+    command = [
+        curl_path,
+        "--silent",
+        "--show-error",
+        "--location",
+        "--compressed",
+        "--max-time",
+        str(timeout_seconds),
+        "--fail",
+    ]
+    for key, value in request_headers.items():
+        command.extend(["-H", f"{key}: {value}"])
+    command.append(url)
+
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            timeout=timeout_seconds + 5,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise TimeoutError("curl request timed out") from error
+
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise URLError(f"curl failed with exit code {result.returncode}: {stderr or 'unknown error'}")
+
+    return result.stdout.decode("utf-8", errors="replace")
+
+
 def fetch_html(url: str, user_agent: str, timeout_seconds: int, headers: dict[str, str] | None) -> str:
-    request_headers = {
-        "User-Agent": user_agent,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-    }
-    if headers:
-        request_headers.update(headers)
+    request_headers = build_request_headers(url, user_agent, headers)
 
     request = Request(url, headers=request_headers)
-    with urlopen(request, timeout=timeout_seconds) as response:
-        content_type = response.headers.get_content_charset() or "utf-8"
-        return response.read().decode(content_type, errors="replace")
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            content_type = response.headers.get_content_charset() or "utf-8"
+            return response.read().decode(content_type, errors="replace")
+    except HTTPError as error:
+        if error.code != 403 or urlparse(url).scheme not in {"http", "https"}:
+            raise
+        return fetch_html_with_curl(url, timeout_seconds, request_headers)
 
 
 def extract_candidates(html: str, search_url: str, raw_listing_url_patterns: list[str] | None) -> list[dict[str, str]]:
@@ -442,10 +528,14 @@ def main() -> int:
 
     all_results: list[MarketplaceResult] = []
     failed_marketplaces: list[str] = []
+    previous_search_url: str | None = None
 
     for marketplace in marketplaces:
         seen_items = state["marketplaces"].setdefault(marketplace["name"], {})
         try:
+            delay_seconds = maybe_delay_between_requests(previous_search_url, marketplace["search_url"], http_config)
+            if delay_seconds > 0:
+                print(f"[{marketplace['name']}] waiting {delay_seconds:.1f}s before fetch")
             result = run_marketplace(
                 marketplace=marketplace,
                 seen_items=seen_items,
@@ -455,6 +545,7 @@ def main() -> int:
             )
         except (HTTPError, URLError, TimeoutError, ValueError) as error:
             failed_marketplaces.append(f"{marketplace['name']}: {error}")
+            previous_search_url = marketplace["search_url"]
             continue
 
         all_results.append(result)
@@ -469,6 +560,8 @@ def main() -> int:
 
         if not args.dry_run:
             update_seen_items(seen_items, state["global_items"], result)
+
+        previous_search_url = marketplace["search_url"]
 
     new_results = [result for result in all_results if result.new_items]
     new_count = sum(len(result.new_items) for result in new_results)

@@ -2,7 +2,15 @@
   "state_file": "data/state.json",
   "http": {
     "timeout_seconds": 30,
-    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "request_delay_seconds": {
+      "min": 2,
+      "max": 6
+    },
+    "same_domain_extra_delay_seconds": {
+      "min": 1,
+      "max": 3
+    }
   },
   "email": {
     "from": "Marketplace Watcher <alerts@your-domain.com>"
